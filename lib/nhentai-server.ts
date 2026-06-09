@@ -1,16 +1,57 @@
-import type { NHGallery, NHSearchResult } from './nhentai'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import * as nhentaiLib from 'nhentai'
+import type { NHGallery, ImageType } from './nhentai'
 
-function getHeaders(): Record<string, string> {
-  const h: Record<string, string> = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-    'Referer':    'https://nhentai.net/',
-    'Accept':     'application/json, text/plain, */*',
-    'Accept-Language': 'en-US,en;q=0.9',
+const api = new nhentaiLib.API()
+
+function urlToType(url: string): ImageType {
+  if (url.endsWith('.webp')) return 'w'
+  if (url.endsWith('.png'))  return 'p'
+  if (url.endsWith('.gif'))  return 'g'
+  return 'j'
+}
+
+function extractMediaId(urls: string[]): string {
+  for (const url of urls) {
+    const m = url.match(/\/galleries\/(\d+)\//)
+    if (m) return m[1]
   }
-  if (process.env.NHENTAI_SESSION_COOKIE) {
-    h['Cookie'] = `sessionid=${process.env.NHENTAI_SESSION_COOKIE}`
+  return ''
+}
+
+function adaptDoujin(d: any): NHGallery {
+  const pageUrls: string[] = (d.pages ?? []).map((p: any) => String(p.url ?? ''))
+  const coverUrl  = String(d.cover?.url  ?? '')
+  const thumbUrl  = String(d.thumbnail?.url ?? coverUrl)
+  const mediaId   = extractMediaId([coverUrl, thumbUrl, ...pageUrls])
+
+  return {
+    id:       d.id,
+    media_id: mediaId || String(d.mediaId ?? d.id),
+    title: {
+      english:  d.titles?.english  ?? d.titles?.pretty ?? '',
+      japanese: d.titles?.japanese ?? '',
+      pretty:   d.titles?.pretty   ?? '',
+    },
+    images: {
+      pages:     pageUrls.map((url) => ({ t: urlToType(url), w: 0, h: 0, url })),
+      cover:     { t: urlToType(coverUrl), w: 0, h: 0, url: coverUrl },
+      thumbnail: { t: urlToType(thumbUrl), w: 0, h: 0, url: thumbUrl },
+    },
+    scanlator:    '',
+    upload_date:  d.uploadDate instanceof Date
+      ? Math.floor(d.uploadDate.getTime() / 1000)
+      : (Number(d.uploadDate) || 0),
+    tags: (d.tags?.all ?? d.tags ?? []).map((tag: any) => ({
+      id:    tag.id    ?? 0,
+      type:  tag.type  ?? 'tag',
+      name:  tag.name  ?? '',
+      url:   tag.url   ?? '',
+      count: tag.count ?? 0,
+    })),
+    num_pages:     d.numPages    ?? pageUrls.length,
+    num_favorites: d.numFavorites ?? 0,
   }
-  return h
 }
 
 export async function serverSearchGalleries(
@@ -19,39 +60,36 @@ export async function serverSearchGalleries(
   sort  = 'recent'
 ): Promise<{ result: NHGallery[]; num_pages: number }> {
   try {
-    const params = new URLSearchParams({ query, page: String(page), sort })
-    const res = await fetch(
-      `https://nhentai.net/api/galleries/search?${params}`,
-      { headers: getHeaders(), next: { revalidate: sort.startsWith('popular') ? 3600 : 300 } }
-    )
-    if (!res.ok) return { result: [], num_pages: 0 }
-    return res.json() as Promise<NHSearchResult>
-  } catch {
+    const res: any = query
+      ? await api.search(query, page, sort as any)
+      : await api.fetchHomepage(page, sort as any)
+
+    const doujins  = res.doujins  ?? res.result  ?? []
+    const numPages = res.numPages ?? res.num_pages ?? 1
+
+    return { result: doujins.map(adaptDoujin), num_pages: Number(numPages) }
+  } catch (err) {
+    console.error('[nhentai] search error:', err)
     return { result: [], num_pages: 0 }
   }
 }
 
 export async function serverGetGallery(id: string): Promise<NHGallery | null> {
   try {
-    const res = await fetch(
-      `https://nhentai.net/api/gallery/${id}`,
-      { headers: getHeaders(), next: { revalidate: 3600 } }
-    )
-    if (!res.ok) return null
-    return res.json() as Promise<NHGallery>
-  } catch {
+    const d = await api.fetchDoujin(Number(id))
+    if (!d) return null
+    return adaptDoujin(d)
+  } catch (err) {
+    console.error('[nhentai] gallery error:', err)
     return null
   }
 }
 
 export async function serverRandomGallery(): Promise<NHGallery | null> {
   try {
-    const res = await fetch(
-      'https://nhentai.net/api/gallery/random',
-      { headers: getHeaders(), cache: 'no-store' }
-    )
-    if (!res.ok) return null
-    return res.json() as Promise<NHGallery>
+    const d = await api.randomDoujin()
+    if (!d) return null
+    return adaptDoujin(d)
   } catch {
     return null
   }

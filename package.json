@@ -11,10 +11,10 @@
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.4",
+    "nhentai": "^4.0.0",
     "next": "15.5.18",
     "react": "^18",
     "react-dom": "^18",
-    "lucide-react": "^0.441.0",
     "clsx": "^2.1.1"
   },
   "devDependencies": {

@@ -10,15 +10,18 @@ export function Reader({ gallery }: { gallery: NHGallery }) {
   return (
     <>
       <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
-        {pages.map((p, i) => (
-          <button key={i} onClick={() => { setStartPage(i + 1); setOpen(true) }}
-            className="aspect-[7/10] rounded-md overflow-hidden border-2 border-transparent hover:border-accent transition-colors group relative">
-            <img src={thumbPageUrl(gallery.media_id, i + 1, p.t)} alt={`Page ${i + 1}`} loading="lazy" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 flex items-end justify-end p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <span className="text-[9px] font-bold bg-black/70 text-white px-1 rounded">{i + 1}</span>
-            </div>
-          </button>
-        ))}
+        {pages.map((p, i) => {
+          const src = p.url ?? thumbPageUrl(gallery.media_id, i + 1, p.t)
+          return (
+            <button key={i} onClick={() => { setStartPage(i + 1); setOpen(true) }}
+              className="aspect-[7/10] rounded-md overflow-hidden border-2 border-transparent hover:border-accent transition-colors group relative">
+              <img src={src} alt={`Page ${i + 1}`} loading="lazy" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 flex items-end justify-end p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-[9px] font-bold bg-black/70 text-white px-1 rounded">{i + 1}</span>
+              </div>
+            </button>
+          )
+        })}
       </div>
       {open && <ReaderModal gallery={gallery} initialPage={startPage} onClose={() => setOpen(false)} />}
     </>
@@ -42,7 +45,7 @@ export function ReaderModal({ gallery, initialPage = 1, onClose }: { gallery: NH
   }, [total])
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft'  || e.key === 'a') go(-1)
       if (e.key === 'ArrowRight' || e.key === 'd') go(1)
       if (e.key === 'Escape') onClose()
@@ -57,7 +60,7 @@ export function ReaderModal({ gallery, initialPage = 1, onClose }: { gallery: NH
   }, [])
 
   const page   = pages[current - 1]
-  const imgSrc = page ? pageUrl(gallery.media_id, current, page.t) : ''
+  const imgSrc = page?.url ?? (page ? pageUrl(gallery.media_id, current, page.t) : '')
   const title  = gallery.title.english || gallery.title.pretty
 
   return (
@@ -69,8 +72,9 @@ export function ReaderModal({ gallery, initialPage = 1, onClose }: { gallery: NH
         <span className="flex-1 text-xs text-muted truncate">{title}</span>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button onClick={() => setFitMode(m => m === 'contain' ? 'width' : 'contain')}
-            className="w-8 h-8 rounded bg-bg4 border border-border flex items-center justify-center text-muted hover:text-accent hover:border-accent transition-all text-xs font-bold"
-            title="Toggle fit">{fitMode === 'contain' ? '⇔' : '⇓'}</button>
+            className="w-8 h-8 rounded bg-bg4 border border-border flex items-center justify-center text-muted hover:text-accent hover:border-accent transition-all text-xs font-bold">
+            {fitMode === 'contain' ? '\u21D4' : '\u21D3'}
+          </button>
           <span className="text-sm font-semibold text-muted min-w-[52px] text-right">{current} / {total}</span>
         </div>
       </div>
@@ -80,15 +84,13 @@ export function ReaderModal({ gallery, initialPage = 1, onClose }: { gallery: NH
           className="absolute left-2 z-10 w-12 h-20 rounded-lg bg-black/60 border border-border/50 flex items-center justify-center text-muted hover:bg-accent hover:text-white hover:border-accent disabled:opacity-20 transition-all">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
-
         <div className="flex-1 h-full flex items-center justify-center overflow-auto"
           onClick={e => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); go(e.clientX - r.left > r.width / 2 ? 1 : -1) }}>
-          {imgLoading && <div className="absolute inset-0 flex items-center justify-center"><div className="spinner" /></div>}
+          {imgLoading && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="spinner" /></div>}
           <img key={imgSrc} src={imgSrc} alt={`Page ${current}`} draggable={false}
             className={`select-none transition-opacity duration-150 ${fitMode === 'width' ? 'w-full h-auto' : 'max-w-full max-h-full'} ${imgLoading ? 'opacity-0' : 'opacity-100'}`}
             onLoad={() => setImgLoading(false)} onError={() => setImgLoading(false)} />
         </div>
-
         <button onClick={() => go(1)} disabled={current === total}
           className="absolute right-2 z-10 w-12 h-20 rounded-lg bg-black/60 border border-border/50 flex items-center justify-center text-muted hover:bg-accent hover:text-white hover:border-accent disabled:opacity-20 transition-all">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -97,12 +99,15 @@ export function ReaderModal({ gallery, initialPage = 1, onClose }: { gallery: NH
 
       <div className="bg-black/90 border-t border-border/50 overflow-x-auto flex-shrink-0">
         <div className="flex gap-1.5 p-2 min-h-[68px] items-center">
-          {pages.map((p, i) => (
-            <button key={i} onClick={() => { setCurrent(i + 1); setImgLoading(true) }}
-              className={'flex-shrink-0 w-10 h-14 rounded overflow-hidden border-2 transition-all ' + (i + 1 === current ? 'border-accent opacity-100' : 'border-transparent opacity-50 hover:opacity-80')}>
-              <img src={thumbPageUrl(gallery.media_id, i + 1, p.t)} alt={`${i+1}`} loading="lazy" className="w-full h-full object-cover" />
-            </button>
-          ))}
+          {pages.map((p, i) => {
+            const thumbSrc = p.url ?? thumbPageUrl(gallery.media_id, i + 1, p.t)
+            return (
+              <button key={i} onClick={() => { setCurrent(i + 1); setImgLoading(true) }}
+                className={`flex-shrink-0 w-10 h-14 rounded overflow-hidden border-2 transition-all ${ i + 1 === current ? 'border-accent opacity-100' : 'border-transparent opacity-50 hover:opacity-80'}`}>
+                <img src={thumbSrc} alt={`${i + 1}`} loading="lazy" className="w-full h-full object-cover" />
+              </button>
+            )
+          })}
         </div>
       </div>
     </div>
