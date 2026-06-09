@@ -1,20 +1,7 @@
+import React from 'react'
 import { GalleryGrid } from '@/components/GalleryGrid'
 import { HeroSection } from '@/components/HeroSection'
-import type { NHGallery } from '@/lib/nhentai'
-
-async function getGalleries(sort: string, page = 1): Promise<{ result: NHGallery[]; num_pages: number }> {
-  try {
-    const base = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'
-    const res = await fetch(
-      `${base}/api/nhentai/galleries/search?query=&page=${page}&sort=${sort}`,
-      { next: { revalidate: sort === 'popular' ? 3600 : 300 } }
-    )
-    if (!res.ok) throw new Error('fetch failed')
-    return res.json()
-  } catch {
-    return { result: [], num_pages: 0 }
-  }
-}
+import { serverSearchGalleries } from '@/lib/nhentai-server'
 
 export default async function HomePage({
   searchParams,
@@ -23,9 +10,10 @@ export default async function HomePage({
 }) {
   const { page: pageParam } = await searchParams
   const page = Number(pageParam) || 1
+
   const [recent, popular] = await Promise.all([
-    getGalleries('recent', page),
-    getGalleries('popular'),
+    serverSearchGalleries('', page, 'recent'),
+    serverSearchGalleries('', 1, 'popular'),
   ])
 
   return (
@@ -34,13 +22,13 @@ export default async function HomePage({
 
       {popular.result.length > 0 && (
         <section className="mb-12">
-          <SectionHeader title="🔥 Popular" href="/search?sort=popular" />
+          <SectionHeader title="\uD83D\uDD25 Popular" href="/search?sort=popular" />
           <GalleryGrid galleries={popular.result.slice(0, 12)} />
         </section>
       )}
 
       <section>
-        <SectionHeader title="🕐 Recently Added" href="/search?sort=recent" />
+        <SectionHeader title="\uD83D\uDD50 Recently Added" href="/search?sort=recent" />
         {recent.result.length > 0 ? (
           <>
             <GalleryGrid galleries={recent.result} />
@@ -58,7 +46,7 @@ function SectionHeader({ title, href }: { title: string; href: string }) {
   return (
     <div className="flex items-center justify-between mb-5">
       <h2 className="text-xl font-bold">{title}</h2>
-      <a href={href} className="text-sm text-faint hover:text-accent transition-colors">See all →</a>
+      <a href={href} className="text-sm text-faint hover:text-accent transition-colors">See all \u2192</a>
     </div>
   )
 }
@@ -66,40 +54,41 @@ function SectionHeader({ title, href }: { title: string; href: string }) {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-faint">
-      <div className="text-5xl mb-4 opacity-40">✿</div>
-      <h3 className="text-lg text-muted mb-2">Could not load content</h3>
-      <p className="text-sm">Check your nhentai session cookie or try again later</p>
+      <div className="text-5xl mb-4 opacity-40">\u273F</div>
+      <h3 className="text-lg text-muted mb-2">Could not reach nhentai</h3>
+      <p className="text-sm">Try adding a session cookie to improve reliability</p>
     </div>
   )
 }
 
 function Pagination({ current, total }: { current: number; total: number }) {
   if (total <= 1) return null
+
   const cls = (active: boolean) =>
-    `min-w-[36px] h-9 px-2 rounded-md border text-sm font-medium flex items-center justify-center transition-all ` +
+    'min-w-[36px] h-9 px-2 rounded-md border text-sm font-medium flex items-center justify-center transition-all ' +
     (active ? 'bg-accent border-accent text-white' : 'bg-bg3 border-border text-muted hover:border-accent hover:text-accent')
 
   const start = Math.max(1, current - 2)
   const end   = Math.min(total, current + 2)
-  const pages = []
+  const pages: React.ReactNode[] = []
 
   if (start > 1) {
     pages.push(<a key={1} href="/?page=1" className={cls(false)}>1</a>)
-    if (start > 2) pages.push(<span key="el" className="text-faint px-1">…</span>)
+    if (start > 2) pages.push(<span key="el" className="text-faint px-1">\u2026</span>)
   }
   for (let i = start; i <= end; i++) {
     pages.push(<a key={i} href={`/?page=${i}`} className={cls(i === current)}>{i}</a>)
   }
   if (end < total) {
-    if (end < total - 1) pages.push(<span key="er" className="text-faint px-1">…</span>)
+    if (end < total - 1) pages.push(<span key="er" className="text-faint px-1">\u2026</span>)
     pages.push(<a key={total} href={`/?page=${total}`} className={cls(false)}>{total}</a>)
   }
 
   return (
     <div className="flex items-center justify-center gap-2 mt-12 flex-wrap">
-      {current > 1 && <a href={`/?page=${current - 1}`} className={cls(false)}>‹</a>}
+      {current > 1 && <a href={`/?page=${current - 1}`} className={cls(false)}>\u2039</a>}
       {pages}
-      {current < total && <a href={`/?page=${current + 1}`} className={cls(false)}>›</a>}
+      {current < total && <a href={`/?page=${current + 1}`} className={cls(false)}>\u203A</a>}
     </div>
   )
 }

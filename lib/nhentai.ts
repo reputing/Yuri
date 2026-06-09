@@ -1,4 +1,4 @@
-export type ImageType = 'j' | 'p' | 'g'
+export type ImageType = 'j' | 'p' | 'g' | 'w'
 
 export interface NHImage { t: ImageType; w: number; h: number }
 
@@ -24,12 +24,12 @@ export interface NHGallery {
 
 export interface NHSearchResult { result: NHGallery[]; num_pages: number; per_page: number }
 
-const EXT: Record<ImageType, string> = { j: 'jpg', p: 'png', g: 'gif' }
+const EXT: Record<ImageType, string> = { j: 'jpg', p: 'png', g: 'gif', w: 'webp' }
 
-export const coverUrl     = (g: NHGallery) => `https://t.nhentai.net/galleries/${g.media_id}/cover.${EXT[g.images.cover.t]}`
-export const thumbnailUrl = (g: NHGallery) => `https://t.nhentai.net/galleries/${g.media_id}/thumbnail.${EXT[g.images.thumbnail.t]}`
-export const pageUrl      = (mediaId: string, pageNum: number, ext: ImageType) => `https://i.nhentai.net/galleries/${mediaId}/${pageNum}.${EXT[ext]}`
-export const thumbPageUrl = (mediaId: string, pageNum: number, ext: ImageType) => `https://t.nhentai.net/galleries/${mediaId}/${pageNum}t.${EXT[ext]}`
+export const coverUrl     = (g: NHGallery) => `https://t.nhentai.net/galleries/${g.media_id}/cover.${EXT[g.images.cover.t] ?? 'jpg'}`
+export const thumbnailUrl = (g: NHGallery) => `https://t.nhentai.net/galleries/${g.media_id}/thumbnail.${EXT[g.images.thumbnail.t] ?? 'jpg'}`
+export const pageUrl      = (mediaId: string, pageNum: number, ext: ImageType) => `https://i.nhentai.net/galleries/${mediaId}/${pageNum}.${EXT[ext] ?? 'jpg'}`
+export const thumbPageUrl = (mediaId: string, pageNum: number, ext: ImageType) => `https://t.nhentai.net/galleries/${mediaId}/${pageNum}t.${EXT[ext] ?? 'jpg'}`
 export const getTagsByType = (tags: NHTag[], type: NHTag['type']) => tags.filter(t => t.type === type)
 export const getLanguage   = (tags: NHTag[]) => { const l = getTagsByType(tags, 'language')[0]; return l ? l.name.charAt(0).toUpperCase() + l.name.slice(1) : 'Unknown' }
 export const getLangCode   = (tags: NHTag[]) => { const l = getTagsByType(tags, 'language')[0]; if (!l) return 'other'; const n = l.name.toLowerCase(); return n.includes('english') ? 'en' : n.includes('japanese') ? 'jp' : n.includes('chinese') ? 'zh' : 'other' }

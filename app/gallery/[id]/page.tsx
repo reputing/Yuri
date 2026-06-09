@@ -1,17 +1,9 @@
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
-import { coverUrl, getTagsByType, getLangCode, formatDate, formatCount, type NHGallery } from '@/lib/nhentai'
+import { coverUrl, getTagsByType, getLangCode, formatDate, formatCount } from '@/lib/nhentai'
+import { serverGetGallery } from '@/lib/nhentai-server'
 import { GalleryActions } from '@/components/GalleryActions'
 import { Reader } from '@/components/Reader'
-
-async function getGallery(id: string): Promise<NHGallery | null> {
-  try {
-    const base = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'
-    const res = await fetch(`${base}/api/nhentai/gallery/${id}`, { next: { revalidate: 3600 } })
-    if (!res.ok) return null
-    return res.json()
-  } catch { return null }
-}
 
 const TAG_STYLES: Record<string, string> = {
   artist:    'border-purple-500/60 text-purple-400 bg-purple-500/10',
@@ -30,13 +22,13 @@ const LANG_BADGE: Record<string, string> = {
 }
 
 const META_TYPES = [
-  { type: 'parody', label: 'Parody' },
+  { type: 'parody',    label: 'Parody' },
   { type: 'character', label: 'Characters' },
-  { type: 'tag', label: 'Tags' },
-  { type: 'artist', label: 'Artists' },
-  { type: 'group', label: 'Groups' },
-  { type: 'language', label: 'Language' },
-  { type: 'category', label: 'Category' },
+  { type: 'tag',       label: 'Tags' },
+  { type: 'artist',    label: 'Artists' },
+  { type: 'group',     label: 'Groups' },
+  { type: 'language',  label: 'Language' },
+  { type: 'category',  label: 'Category' },
 ] as const
 
 export default async function GalleryPage({
@@ -45,7 +37,7 @@ export default async function GalleryPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const gallery = await getGallery(id)
+  const gallery = await serverGetGallery(id)
   if (!gallery) notFound()
 
   const lang  = getLangCode(gallery.tags)
@@ -56,30 +48,46 @@ export default async function GalleryPage({
       <div className="grid gap-10 md:grid-cols-[260px_1fr]">
         <div className="md:sticky md:top-20 self-start">
           <div className="relative aspect-[7/10] rounded-xl overflow-hidden border border-border shadow-2xl">
-            <Image src={cover} alt={gallery.title.pretty} fill className="object-cover" sizes="260px" />
-            <div className={`absolute top-2 left-2 text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wide ${LANG_BADGE[lang] || 'bg-bg4 text-faint'}`}>
-              {lang === 'en' ? 'EN' : lang === 'jp' ? 'JP' : lang === 'zh' ? 'ZH' : '?'}
-            </div>
+            <Image
+              src={cover}
+              alt={gallery.title.pretty}
+              fill
+              className="object-cover"
+              sizes="260px"
+              unoptimized
+            />
+            {LANG_BADGE[lang] && (
+              <div className={`absolute top-2 left-2 text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wide ${LANG_BADGE[lang]}`}>
+                {lang.toUpperCase()}
+              </div>
+            )}
             <div className="absolute top-2 right-2 text-xs font-semibold px-2 py-0.5 rounded bg-black/70 text-muted border border-border">{gallery.num_pages}p</div>
           </div>
           <GalleryActions gallery={gallery} />
         </div>
 
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold leading-tight mb-1">{gallery.title.english || gallery.title.pretty}</h1>
-          {gallery.title.japanese && <p className="text-sm text-faint italic mb-6">{gallery.title.japanese}</p>}
+          <h1 className="text-2xl md:text-3xl font-bold leading-tight mb-1">
+            {gallery.title.english || gallery.title.pretty}
+          </h1>
+          {gallery.title.japanese && (
+            <p className="text-sm text-faint italic mb-6">{gallery.title.japanese}</p>
+          )}
 
           <div className="space-y-4 mb-8">
             {META_TYPES.map(({ type, label }) => {
-              const tags = getTagsByType(gallery.tags, type as any)
+              const tags = getTagsByType(gallery.tags, type)
               if (!tags.length) return null
               return (
                 <div key={type} className="flex gap-4 items-start text-sm">
                   <span className="text-faint text-xs uppercase tracking-wide min-w-[100px] pt-1">{label}</span>
                   <div className="flex flex-wrap gap-1.5">
                     {tags.map(tag => (
-                      <a key={tag.id} href={`/search?q=${encodeURIComponent(tag.name)}`}
-                        className={`px-2.5 py-1 rounded-full text-xs border transition-all hover:opacity-80 ${TAG_STYLES[type] || TAG_STYLES.tag}`}>
+                      <a
+                        key={tag.id}
+                        href={`/search?q=${encodeURIComponent(tag.name)}`}
+                        className={`px-2.5 py-1 rounded-full text-xs border transition-all hover:opacity-80 ${TAG_STYLES[type] ?? TAG_STYLES.tag}`}
+                      >
                         {tag.name}
                         <span className="ml-1 opacity-50 text-[10px]">{formatCount(tag.count)}</span>
                       </a>
@@ -94,7 +102,7 @@ export default async function GalleryPage({
             </div>
             <div className="flex gap-4 items-center text-sm">
               <span className="text-faint text-xs uppercase tracking-wide min-w-[100px]">Favorites</span>
-              <span className="text-red-400">♥ {formatCount(gallery.num_favorites)}</span>
+              <span className="text-red-400">\u2665 {formatCount(gallery.num_favorites)}</span>
             </div>
           </div>
 
