@@ -16,11 +16,12 @@ async function search(query: string, page: number, sort: string): Promise<{ resu
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: { q?: string; page?: string; sort?: string }
+  searchParams: Promise<{ q?: string; page?: string; sort?: string }>
 }) {
-  const query = searchParams.q || ''
-  const page  = Number(searchParams.page) || 1
-  const sort  = searchParams.sort || 'recent'
+  const { q, page: pageParam, sort: sortParam } = await searchParams
+  const query = q || ''
+  const page  = Number(pageParam) || 1
+  const sort  = sortParam || 'recent'
   const data  = await search(query, page, sort)
 
   const sorts = [
@@ -72,7 +73,10 @@ export default async function SearchPage({
   )
 }
 
-function Pagination({ current, total, builder, sort }: { current: number; total: number; builder: (p: number, s: string) => string; sort: string }) {
+function Pagination({ current, total, builder, sort }: {
+  current: number; total: number
+  builder: (p: number, s: string) => string; sort: string
+}) {
   if (total <= 1) return null
   const cls = (active: boolean) =>
     `min-w-[36px] h-9 px-2 rounded-md border text-sm font-medium flex items-center justify-center transition-all ` +

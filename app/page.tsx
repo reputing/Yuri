@@ -16,8 +16,13 @@ async function getGalleries(sort: string, page = 1): Promise<{ result: NHGallery
   }
 }
 
-export default async function HomePage({ searchParams }: { searchParams: { page?: string } }) {
-  const page = Number(searchParams.page) || 1
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
+  const { page: pageParam } = await searchParams
+  const page = Number(pageParam) || 1
   const [recent, popular] = await Promise.all([
     getGalleries('recent', page),
     getGalleries('popular'),

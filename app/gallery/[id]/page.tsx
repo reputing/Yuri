@@ -39,8 +39,13 @@ const META_TYPES = [
   { type: 'category', label: 'Category' },
 ] as const
 
-export default async function GalleryPage({ params }: { params: { id: string } }) {
-  const gallery = await getGallery(params.id)
+export default async function GalleryPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  const gallery = await getGallery(id)
   if (!gallery) notFound()
 
   const lang  = getLangCode(gallery.tags)
